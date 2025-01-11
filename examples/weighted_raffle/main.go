@@ -84,7 +84,7 @@ func main() {
 	idx, _ := indexer.MakeClientWithHeaders("https://mainnet-idx.algonode.cloud", "", algonodeRefererHeader)
 	collectionClient := algorand.NewCollectionClient(algoD, idx)
 
-	log.Info().Msg("Getting holders...")
+	log.Info().Msg("Running raffle...")
 
 	winningAssets, err := holders.RunWeightedCollectionRaffle(context.Background(), collectionClient, collections, numberOfWinners, concurrency)
 	if err != nil {
