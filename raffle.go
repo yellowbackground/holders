@@ -106,7 +106,3 @@ func findWeightedCollection(weightedCollections []WeightedCollection, collection
 	}
 	return WeightedCollection{}, false
 }
-
-func isHolderEligible(winning Asset) bool {
-	return true // TODO
-}
