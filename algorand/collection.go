@@ -125,23 +125,36 @@ func (c collectionClient) GetAssetHoldingsByCollection(ctx context.Context, coll
 
 	holdings := []holders.AssetHolding{}
 	for _, asset := range createdAssets {
-		balancesResponse, err := c.indexerClient.LookupAssetBalances(asset.AssetID).Do(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, balance := range balancesResponse.Balances {
-			if balance.Amount > 0 &&
-				balance.Deleted == false &&
-				!isExcludedHolderAddress(collection.ExcludedHolderAddresses, balance.Address) {
-
-				holdings = append(holdings, holders.AssetHolding{
-					Address:  balance.Address,
-					Amount:   balance.Amount,
-					AssetID:  asset.AssetID,
-					Name:     asset.Name,
-					UnitName: asset.UnitName,
-				})
+		nextToken := ""
+		for {
+			balancesResponse, err := c.indexerClient.LookupAssetBalances(asset.AssetID).
+				Limit(1000).
+				NextToken(nextToken).
+				Do(ctx)
+			if err != nil {
+				return nil, err
 			}
+
+			for _, balance := range balancesResponse.Balances {
+				if balance.Amount > 0 &&
+					balance.Deleted == false &&
+					!isExcludedHolderAddress(collection.ExcludedHolderAddresses, balance.Address) {
+
+					holdings = append(holdings, holders.AssetHolding{
+						Address:  balance.Address,
+						Amount:   balance.Amount,
+						AssetID:  asset.AssetID,
+						Name:     asset.Name,
+						UnitName: asset.UnitName,
+					})
+				}
+			}
+
+			if balancesResponse.NextToken == "" {
+				break
+			}
+
+			nextToken = balancesResponse.NextToken
 		}
 	}
 
