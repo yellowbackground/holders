@@ -80,13 +80,18 @@ var algonodeRefererHeader = []*common.Header{
 }
 
 func main() {
+	var excludedWallets = []string{}
+	for _, collection := range collections {
+		excludedWallets = append(excludedWallets, collection.Collection.Addresses...)
+	}
+
 	algoD, _ := algod.MakeClientWithHeaders("https://mainnet-api.algonode.cloud", "", algonodeRefererHeader)
 	idx, _ := indexer.MakeClientWithHeaders("https://mainnet-idx.algonode.cloud", "", algonodeRefererHeader)
 	collectionClient := algorand.NewCollectionClient(algoD, idx)
 
 	log.Info().Msg("Running raffle...")
 
-	winningAssets, err := holders.RunWeightedCollectionRaffle(context.Background(), collectionClient, collections, numberOfWinners, concurrency)
+	winningAssets, err := holders.RunWeightedCollectionRaffle(context.Background(), collectionClient, collections, numberOfWinners, concurrency, excludedWallets)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to get holders")
 	}

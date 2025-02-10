@@ -16,7 +16,7 @@ type WeightedCollection struct {
 	Weight     uint64
 }
 
-func RunWeightedCollectionRaffle(ctx context.Context, client CollectionClient, weightedCollections []WeightedCollection, numberOfWinners int, concurrency int) ([]AssetHolding, error) {
+func RunWeightedCollectionRaffle(ctx context.Context, client CollectionClient, weightedCollections []WeightedCollection, numberOfWinners int, concurrency int, excludedWinnerWallets []string) ([]AssetHolding, error) {
 	collections := extractCollections(weightedCollections)
 
 	assetsHoldingsByCollection, err := GetAssetHoldingsByCollection(ctx, client, collections, concurrency)
@@ -30,7 +30,7 @@ func RunWeightedCollectionRaffle(ctx context.Context, client CollectionClient, w
 		return nil, err
 	}
 
-	return ensureUniqueWinners(weightedTickets, chooser, numberOfWinners)
+	return pickUniqueWinners(weightedTickets, chooser, numberOfWinners, excludedWinnerWallets)
 }
 
 func extractCollections(weightedCollections []WeightedCollection) []Collection {
@@ -41,9 +41,18 @@ func extractCollections(weightedCollections []WeightedCollection) []Collection {
 	return collections
 }
 
-func ensureUniqueWinners(weightedTickets []weightedrand.Choice[AssetHolding, uint64], chooser *weightedrand.Chooser[AssetHolding, uint64], numberOfWinners int) ([]AssetHolding, error) {
+func pickUniqueWinners(weightedTickets []weightedrand.Choice[AssetHolding, uint64], chooser *weightedrand.Chooser[AssetHolding, uint64], numberOfWinners int, excludedWallets []string) ([]AssetHolding, error) {
 	selectedWinners := make(map[AssetHolding]bool)
 	var winners []AssetHolding
+
+	isExcludedWallet := func(wallet string) bool {
+		for _, excluded := range excludedWallets {
+			if wallet == excluded {
+				return true
+			}
+		}
+		return false
+	}
 
 	for len(winners) < numberOfWinners {
 		if len(weightedTickets) == 0 {
@@ -51,10 +60,12 @@ func ensureUniqueWinners(weightedTickets []weightedrand.Choice[AssetHolding, uin
 		}
 
 		winner := chooser.Pick()
-		if !selectedWinners[winner] {
+
+		if !isExcludedWallet(winner.Address) && !selectedWinners[winner] {
 			selectedWinners[winner] = true
 			winners = append(winners, winner)
 		} else {
+			// Remove the picked asset and recreate chooser
 			weightedTickets = removePickedAsset(weightedTickets, winner)
 			newChooser, err := weightedrand.NewChooser(weightedTickets...)
 			if err != nil {
